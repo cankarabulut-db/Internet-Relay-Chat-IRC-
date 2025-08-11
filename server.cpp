@@ -127,7 +127,75 @@ void Server::acceptNewClient()
         Add_To_Epoll(clientSocket, EPOLLIN | EPOLLET);
         clientSockets.push_back(clientSocket);
         clientInfo[clientSocket] = std::string(clientIPaddr) + ":" + std::to_string(clientPort); 
-        std::cout << "client added\n";
+        std::cout << "✅ client added\n";
+    }
+}
+
+void Server::dataSending(int cSock, const std::string &data)
+{
+    ssize_t totalSent = 0;
+    ssize_t dataSize = data.length();
+
+    while(dataSize > totalSent)
+    {
+        ssize_t sent = send(cSock, data.c_str() + totalSent, dataSize - totalSent, MSG_NOSIGNAL);
+        if(sent == -1)
+        {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                    // Socket buffer dolu, epoll'da yazma için bekle
+                    mod_Epoll(cSock, EPOLLIN | EPOLLOUT | EPOLLET);
+                    break;
+                } else {
+                    perror("send() failed");
+                    std::cout << "disconnect\n";
+                    break;
+                }
+        }
+        else
+            totalSent += sent;
+    }
+    if(totalSent == dataSize)
+        std::cout << "veri gitti\n";
+}
+
+void Server::clientData(int client_Socket)
+{
+    std::cout << "Bu client : " << client_Socket << "veri gönderdi." << std::endl;
+    char buffer[4096];
+    std::string data;
+
+    while(true)
+    {
+        memset(buffer, 0, sizeof(buffer));
+        int bytesRead = recv(client_Socket,buffer, sizeof(buffer) - 1, 0);
+        if(bytesRead > 0)
+        {
+            buffer[bytesRead] = 0;
+            data += buffer;
+            std::cout << "Okunan (" << bytesRead << " bytes): [" << buffer << "]" << std::endl;
+        }
+        else if(bytesRead == 0)
+        {
+            std::cout << "disconnect" << std::endl;
+            return ;
+        }
+        else{
+             if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                    // Tüm veri okundu
+                    break;
+                } else {
+                    perror("recv() failed");
+                    std::cout << "disconnect " << std::endl;
+                    return;
+                }
+        }
+        if(!data.empty())
+        {
+            std::cout << "data : " << data << std::endl;
+
+            std::string deneme = "EPOLL-ECHO " + data;
+            dataSending(client_Socket, deneme);
+        }
     }
 }
 
@@ -148,11 +216,11 @@ void Server::run()
                 perror("epoll_wait() failed");
                 break;
             }
-		while(numEvents > i)
+		for (int i = 0; i < numEvents; i++)
 		{
 			int eventFd = events[i].data.fd;
 			uint32_t eventFlags = events[i].events;
-			if(eventFd == serverSocket)
+			if(eventFd == serverSocket) // YENİ TANIMLANMIŞ CLİENT
 			{
 				if(eventFlags & EPOLLIN)
                 {
@@ -162,16 +230,19 @@ void Server::run()
 			}
 			else 
 				{ 
-					if(eventFlags & (EPOLLERR | EPOLLHUP))
+					if(eventFlags & (EPOLLERR | EPOLLHUP)) // CLİENT ERROR
 					{
 						std::cout << "disconnected." << std::endl;
 					}
-                    else if(eventFlags & EPOLLIN)
+                    else if(eventFlags & EPOLLIN) // TANIMLI CLİENT INPUT
                     {
                         std::cout << "input alındı." << std::endl;
+                        clientData(eventFd);
                     }
+                    else if(eventFlags & EPOLLOUT)
+                        std::cout << "epollout\n";
 				}
-			i++;
+			
 		}
 	}
 }
@@ -185,7 +256,7 @@ int main(int ac,char **av)
         std::cout << "Usage : ./ircserver <port> <password>\n";
         return (1);
     }
-    if(port <= 0 && port >= 65535)
+    if(port <= 0 && port > 65535)
     {
         std::cerr << "Wrong port address.\n";
         return (1); 

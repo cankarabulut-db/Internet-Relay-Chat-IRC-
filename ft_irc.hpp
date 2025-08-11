@@ -36,6 +36,8 @@ public:
     void Add_To_Epoll(int fd, uint32_t events);
     void mod_Epoll(int fd, uint32_t events);
     void acceptNewClient();
+    void clientData(int client_Socket);
+    void dataSending(int cSock, const std::string &data);
     void Listen();
     void removeFromEpoll(int fd);
     void run(); 
