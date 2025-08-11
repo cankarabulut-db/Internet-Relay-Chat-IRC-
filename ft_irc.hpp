@@ -30,9 +30,12 @@ public:
     void socketArrangement();
     int getSocket(){return serverSocket;};
     int getPollFd(){return epollFd;};
-    void setNonBlock();
+    void setNonBlock(int fd);
     void setSocketAndBind();
     void ePollThings();
+    void Add_To_Epoll(int fd, uint32_t events);
+    void mod_Epoll(int fd, uint32_t events);
+    void acceptNewClient();
     void Listen();
     void removeFromEpoll(int fd);
     void run(); 

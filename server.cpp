@@ -6,14 +6,14 @@ Server::Server(int port, std::string password) : port(port) , password(password)
     memset(&serverAddr,0,sizeof(serverAddr));
 };
 
-void Server::setNonBlock()
+void Server::setNonBlock(int fd)
 {
-    int flags = fcntl(serverSocket, F_GETFL, 0);
-    if (flags == -1) {
-         perror("fcntl(F_GETFL) failed");
-         exit(1);
-    }
-    if (fcntl(serverSocket, F_SETFL, flags | O_NONBLOCK) == -1) {
+    int flags = fcntl(fd, F_GETFL, 0);
+    // if (flags == -1) {
+    //      perror("fcntl(F_GETFL) failed");
+    //      exit(1);
+    // }
+    if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) {
          perror("fcntl(F_SETFL) failed");
         exit(1);
     }
@@ -54,14 +54,19 @@ void Server::ePollThings()
         close(serverSocket);
         exit(1);
     }
-    struct epoll_event ev;
-    ev.events = EPOLLIN;
-    ev.data.fd = serverSocket;     
-    if (epoll_ctl(epollFd, EPOLL_CTL_ADD, serverSocket, &ev) == -1) {
-        perror("epoll_ctl(ADD) failed");
-        exit(1);
-    }
+    Add_To_Epoll(serverSocket,EPOLLIN);
 }
+
+void Server::Add_To_Epoll(int fd, uint32_t events) {
+        struct epoll_event ev;
+        ev.events = events;
+        ev.data.fd = fd;
+        
+        if (epoll_ctl(epollFd, EPOLL_CTL_ADD, fd, &ev) == -1) {
+            perror("epoll_ctl(ADD) failed");
+            exit(1);
+        }
+    }
 
 void Server::removeFromEpoll(int fd) {
         if (epoll_ctl(epollFd, EPOLL_CTL_DEL, fd, NULL) == -1) {
@@ -79,17 +84,62 @@ void Server::socketArrangement()
         exit(1);
     }
     setSocketAndBind();
+    setNonBlock(serverSocket);
 	Listen();
 	ePollThings(); 
 }
 
+void Server::mod_Epoll(int fd, uint32_t events) {
+    struct epoll_event ev;
+    ev.events = events;
+    ev.data.fd = fd;
+        
+    if (epoll_ctl(epollFd, EPOLL_CTL_MOD, fd, &ev) == -1)
+        perror("epoll_ctl(MOD) failed");
+}
+
+void Server::acceptNewClient()
+{
+    while(true)
+    {
+        struct sockaddr_in clientAddress;
+        socklen_t clientLength = sizeof(clientAddress);
+
+        int clientSocket = accept(serverSocket, (struct sockaddr*)&clientAddress,&clientLength);
+        // client socket error handle -1
+        if (clientSocket == -1) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                std::cout << "Bekleyen bağlantı yok (non-blocking)" << std::endl;
+                break;
+            } else {
+                perror("accept() failed");
+                break;
+            }
+        }
+        
+        char clientIPaddr[INET_ADDRSTRLEN]; // AFINET İP4 AFINET6 İP6
+        inet_ntop(AF_INET,&clientAddress.sin_addr, clientIPaddr, INET_ADDRSTRLEN);
+        int clientPort = ntohs(clientAddress.sin_port);
+
+        std::cout << "new client accepted.\n";
+
+        setNonBlock(clientSocket);
+        Add_To_Epoll(clientSocket, EPOLLIN | EPOLLET);
+        clientSockets.push_back(clientSocket);
+        clientInfo[clientSocket] = std::string(clientIPaddr) + ":" + std::to_string(clientPort); 
+        std::cout << "client added\n";
+    }
+}
+
 void Server::run()
 {
+	int i;
+
+	i = 0;
 	struct epoll_event events[MAX_EVENTS];
 	std::cout << "Server is starting." << std::endl;
 	while(true)
 	{
-		std::cout << clientSockets.size() << std::endl;
 		int numEvents = epoll_wait(epollFd,events,MAX_EVENTS,-1);
 		  if (numEvents == -1) {
                 if (errno == EINTR) {
@@ -98,7 +148,31 @@ void Server::run()
                 perror("epoll_wait() failed");
                 break;
             }
-		std::cout << "Epoll sonucu: " << numEvents << " event hazır" << std::endl;
+		while(numEvents > i)
+		{
+			int eventFd = events[i].data.fd;
+			uint32_t eventFlags = events[i].events;
+			if(eventFd == serverSocket)
+			{
+				if(eventFlags & EPOLLIN)
+                {
+					std::cout << "New Client!" << std::endl;
+                    acceptNewClient();
+                }
+			}
+			else 
+				{ 
+					if(eventFlags & (EPOLLERR | EPOLLHUP))
+					{
+						std::cout << "disconnected." << std::endl;
+					}
+                    else if(eventFlags & EPOLLIN)
+                    {
+                        std::cout << "input alındı." << std::endl;
+                    }
+				}
+			i++;
+		}
 	}
 }
 
