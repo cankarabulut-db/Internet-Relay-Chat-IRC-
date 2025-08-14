@@ -9,16 +9,32 @@ Server::Server(int port, std::string password) : port(port) , password(password)
 void Server::setNonBlock(int fd)
 {
     int flags = fcntl(fd, F_GETFL, 0);
-    // if (flags == -1) {
-    //      perror("fcntl(F_GETFL) failed");
-    //      exit(1);
-    // }
     if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) {
          perror("fcntl(F_SETFL) failed");
         exit(1);
     }
 }
-
+void Server::disconnect(int clientSocket) {
+    std::cout << "İstemci " << clientSocket << " ("
+              << clientInfo[clientSocket] << ") çıkarılıyor..." << std::endl;
+    
+    // Epoll'dan çıkar
+    removeFromEpoll(clientSocket);
+    
+    // Socket'i kapat
+    close(clientSocket);
+    
+    // Vector'dan sil
+    auto it = std::find(clientSockets.begin(), clientSockets.end(), clientSocket);
+    if (it != clientSockets.end()) {
+        clientSockets.erase(it);
+    }
+    
+   
+    clientInfo.erase(clientSocket);
+    
+    std::cout << "✓ Client : " << clientSocket << " deleted."<< std::endl;
+}
 void Server::setSocketAndBind()
 {
     int opt = 1;
@@ -142,12 +158,11 @@ void Server::dataSending(int cSock, const std::string &data)
         if(sent == -1)
         {
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                    // Socket buffer dolu, epoll'da yazma için bekle
                     mod_Epoll(cSock, EPOLLIN | EPOLLOUT | EPOLLET);
                     break;
                 } else {
                     perror("send() failed");
-                    std::cout << "disconnect\n";
+                    disconnect(cSock);
                     break;
                 }
         }
@@ -155,12 +170,11 @@ void Server::dataSending(int cSock, const std::string &data)
             totalSent += sent;
     }
     if(totalSent == dataSize)
-        std::cout << "veri gitti\n";
+        std::cout << "Data sent.\n";
 }
 
-void Server::clientData(int client_Socket)
+void Server::clientDataHandling(int client_Socket)
 {
-    std::cout << "Bu client : " << client_Socket << "veri gönderdi." << std::endl;
     char buffer[4096];
     std::string data;
 
@@ -172,28 +186,26 @@ void Server::clientData(int client_Socket)
         {
             buffer[bytesRead] = 0;
             data += buffer;
-            std::cout << "Okunan (" << bytesRead << " bytes): [" << buffer << "]" << std::endl;
         }
         else if(bytesRead == 0)
         {
-            std::cout << "disconnect" << std::endl;
+            disconnect(client_Socket);
             return ;
         }
         else{
              if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                    // Tüm veri okundu
                     break;
                 } else {
                     perror("recv() failed");
-                    std::cout << "disconnect " << std::endl;
+                    disconnect(client_Socket);
                     return;
                 }
         }
         if(!data.empty())
         {
-            std::cout << "data : " << data << std::endl;
-
-            std::string deneme = "EPOLL-ECHO " + data;
+            std::cout << "veri : " << data << std::endl;
+            // PARSE KISIM
+            std::string deneme = "MESAJ :  " + data;
             dataSending(client_Socket, deneme);
         }
     }
@@ -220,7 +232,7 @@ void Server::run()
 		{
 			int eventFd = events[i].data.fd;
 			uint32_t eventFlags = events[i].events;
-			if(eventFd == serverSocket) // YENİ TANIMLANMIŞ CLİENT
+			if(eventFd == serverSocket)
 			{
 				if(eventFlags & EPOLLIN)
                 {
@@ -233,11 +245,12 @@ void Server::run()
 					if(eventFlags & (EPOLLERR | EPOLLHUP)) // CLİENT ERROR
 					{
 						std::cout << "disconnected." << std::endl;
+                        disconnect(eventFd);
 					}
-                    else if(eventFlags & EPOLLIN) // TANIMLI CLİENT INPUT
+                    else if(eventFlags & EPOLLIN) // CLİENT TANIMLANDIKTAN SONRA GİRİLEN İNPUTLAR
                     {
-                        std::cout << "input alındı." << std::endl;
-                        clientData(eventFd);
+                        // PARSİNG KISMI
+                        clientDataHandling(eventFd);
                     }
                     else if(eventFlags & EPOLLOUT)
                         std::cout << "epollout\n";
@@ -249,14 +262,14 @@ void Server::run()
 
 int main(int ac,char **av)
 {
-    int port = atoi(av[1]);
-    std::string password = (av[2]);
     if(ac != 3)
     {
         std::cout << "Usage : ./ircserver <port> <password>\n";
         return (1);
     }
-    if(port <= 0 && port > 65535)
+    int port = atoi(av[1]);
+    std::string password = (av[2]);
+    if(port <= 0 || port > 65535)
     {
         std::cerr << "Wrong port address.\n";
         return (1); 
