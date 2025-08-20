@@ -1,6 +1,21 @@
 #include "ft_irc.hpp"
 
-Server::Server(int port, std::string password) : port(port) , password(password){
+Client& Server::returnClient(int client_socket)
+{
+    std::map<int, Client>::iterator it = clientInfo.find(client_socket);
+    if (it == clientInfo.end()) {
+        throw std::runtime_error("Client not found");
+    }
+    return it->second;
+}
+
+std::string Server::getPassword() const
+{
+    return this->password;
+}
+
+Server::Server(int port, std::string password) :password(password) ,port(port), MAX_EVENTS(21)
+{
     serverSocket = -1;
     epollFd = -1;
     memset(&serverAddr,0,sizeof(serverAddr));
@@ -9,14 +24,15 @@ Server::Server(int port, std::string password) : port(port) , password(password)
 void Server::setNonBlock(int fd)
 {
     int flags = fcntl(fd, F_GETFL, 0);
-    if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) {
+    if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1)
+    {
          perror("fcntl(F_SETFL) failed");
         exit(1);
     }
 }
-void Server::disconnect(int clientSocket) {
-    std::cout << "İstemci " << clientSocket << " ("
-              << clientInfo[clientSocket] << ") çıkarılıyor..." << std::endl;
+void Server::disconnect(int clientSocket) 
+{
+    std::cout << "İstemci " << clientSocket << " çıkarılıyor..." << std::endl;
     
     // Epoll'dan çıkar
     removeFromEpoll(clientSocket);
@@ -24,17 +40,18 @@ void Server::disconnect(int clientSocket) {
     // Socket'i kapat
     close(clientSocket);
     
-    // Vector'dan sil
-    auto it = std::find(clientSockets.begin(), clientSockets.end(), clientSocket);
+    // Vector'dan sil - C++98 uyumlu iterator
+    std::vector<int>::iterator it = std::find(clientSockets.begin(), clientSockets.end(), clientSocket);
     if (it != clientSockets.end()) {
         clientSockets.erase(it);
     }
     
-   
+    // Map'ten sil
     clientInfo.erase(clientSocket);
     
     std::cout << "✓ Client : " << clientSocket << " deleted."<< std::endl;
 }
+
 void Server::setSocketAndBind()
 {
     int opt = 1;
@@ -94,6 +111,7 @@ void Server::removeFromEpoll(int fd) {
 void Server::socketArrangement()
 {
     this->serverSocket = socket(AF_INET, SOCK_STREAM, 0);
+    std::cout << this->serverSocket << std::endl;
     if(serverSocket == -1)
     {
         std::cerr << "Error : socket could'nt created." << std::endl;
@@ -142,7 +160,7 @@ void Server::acceptNewClient()
         setNonBlock(clientSocket);
         Add_To_Epoll(clientSocket, EPOLLIN | EPOLLET);
         clientSockets.push_back(clientSocket);
-        clientInfo[clientSocket] = std::string(clientIPaddr) + ":" + std::to_string(clientPort); 
+        clientInfo.insert(std::make_pair(clientSocket, Client(clientSocket, clientIPaddr, clientPort)));
         std::cout << "✅ client added\n";
     }
 }
@@ -173,11 +191,11 @@ void Server::dataSending(int cSock, const std::string &data)
         std::cout << "Data sent.\n";
 }
 
-void Server::clientDataHandling(int client_Socket)
+void Server::clientDataHandling(int client_Socket, Server &server)
 {
     char buffer[4096];
     std::string data;
-
+    (void)server;
     while(true)
     {
         memset(buffer, 0, sizeof(buffer));
@@ -186,6 +204,7 @@ void Server::clientDataHandling(int client_Socket)
         {
             buffer[bytesRead] = 0;
             data += buffer;
+          //  std::cout << data << std::endl;
         }
         else if(bytesRead == 0)
         {
@@ -203,19 +222,29 @@ void Server::clientDataHandling(int client_Socket)
         }
         if(!data.empty())
         {
-            std::cout << "veri : " << data << std::endl;
-            // PARSE KISIM
-            std::string deneme = "MESAJ :  " + data;
-            dataSending(client_Socket, deneme);
+            //if (checkAuthentication(data, server, client_Socket) == -1)
+            //{
+            //    ////////////////////////////// EXIT PART ///////////////////////////BAZEN BURAYA 2 KERE GİRİYOR NEDENİNİ ANLAMADIM ŞEKİLDE BUNA SONRA BAK
+            //    perror("Authentication failed");
+            //    //disconnect(client_Socket);
+            //}
+            //else
+            //{
+              //  if (server.returnClient(client_Socket).getHAuthed())
+              //  {
+                    std::cout << "veri : " << data << std::endl;
+                     //PARSE KISIM
+                    std::string deneme = "MESAJ :  " + data;
+                //    std::string cong = server.returnClient(client_Socket).getNick() + "congrates now you are with us";
+                //    dataSending(client_Socket, cong);
+                //}
+            // }
         }
     }
 }
 
 void Server::run()
 {
-	int i;
-
-	i = 0;
 	struct epoll_event events[MAX_EVENTS];
 	std::cout << "Server is starting." << std::endl;
 	while(true)
@@ -250,7 +279,7 @@ void Server::run()
                     else if(eventFlags & EPOLLIN) // CLİENT TANIMLANDIKTAN SONRA GİRİLEN İNPUTLAR
                     {
                         // PARSİNG KISMI
-                        clientDataHandling(eventFd);
+                        clientDataHandling(eventFd, *this);
                     }
                     else if(eventFlags & EPOLLOUT)
                         std::cout << "epollout\n";
@@ -258,39 +287,4 @@ void Server::run()
 			
 		}
 	}
-}
-
-int main(int ac,char **av)
-{
-    if(ac != 3)
-    {
-        std::cout << "Usage : ./ircserver <port> <password>\n";
-        return (1);
-    }
-    int port = atoi(av[1]);
-    std::string password = (av[2]);
-    if(port <= 0 || port > 65535)
-    {
-        std::cerr << "Wrong port address.\n";
-        return (1); 
-    }
-	std::cout << "<===============================>\n";
-	std::cout << "<==>        IRC SERVER       <==>\n";
-	std::cout << "<===============================>\n";
-	std::cout << "<==>       PORT : " << port << "       <==>\n" ;
-	std::cout << "<===============================>\n";
-	std::cout << "* Password : " << password << std::endl;
-   try 
-   {
-    	Server server(port, password);
-     
-    	server.socketArrangement();
-        server.run();
-        std::cin.get();
-        
-    } catch (const std::exception& e) {
-        std::cerr << "Exception: " << e.what() << std::endl;
-        return 1;
-    }
-    return (0);
 }
