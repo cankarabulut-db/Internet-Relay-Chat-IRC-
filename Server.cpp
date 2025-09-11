@@ -10,6 +10,28 @@ void Server::sendLine(int fd, const std::string &line)
     dataSending(fd, out);            // senin mevcut fonksiyon
 }
 
+int Server::fdByNick(const std::string &nick) const
+{
+    if (nick.empty())
+        return -1;
+
+    for (std::map<int, Client>::const_iterator it = clientInfo.begin();
+         it != clientInfo.end(); ++it) {
+        if (it->second.getNick() == nick)
+            return it->first; // fd
+    }
+    return -1; // bulunamadı
+}
+
+std::string Server::nickByFd(int fd) const
+{
+    std::map<int, Client>::const_iterator it = clientInfo.find(fd);
+    if (it != clientInfo.end())
+        return it->second.getNick();
+    else
+        return "";
+}
+
 
 int Server::CheckPRVMSG(const std::string &data, int clientSocket)
 {
@@ -43,8 +65,20 @@ int Server::CheckPRVMSG(const std::string &data, int clientSocket)
 
     if (!this->hasNick(target))
     {
-        return -2; // hedef yok
         sendLine(this->returnClient(clientSocket).getFd(), ": irc.local  401 " + this->returnClient(clientSocket).getNick() + " " + target + " :No such nick/channel");
+        return -2; // hedef yok
+    }
+    int toFd = this->fdByNick(target);
+    if (toFd < 0) {
+        // hedef yok
+        return -2;
+    }
+
+    // 5) Gönderenin nick’ini doğrula (opsiyonel ama sağlamlık için güzel)
+    std::string fromNick = this->nickByFd(clientSocket);
+    if (fromNick.empty()) {
+        // Gönderen kayıtlı değil veya nick set edilmemiş → parse fail say
+        return -1;
     }
     return 0; // her şey doğru
 }

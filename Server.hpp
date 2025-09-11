@@ -45,6 +45,8 @@ public:
     int CheckPRVMSG(const std::string &data, int clientSocket);
     bool hasNick(const std::string& nick) const;
     void sendLine(int fd, const std::string &line);
+    int fdByNick(const std::string &nick) const;
+    std::string nickByFd(int fd) const;
 
 };
 

@@ -46,6 +46,7 @@ public:
     int     checkPassword(std::string data, Server const &server);
     int     checkNick(std::string data, Server const &server);
     int     checkUser(std::string data, Server const &server);
+
 };
 
 #endif
