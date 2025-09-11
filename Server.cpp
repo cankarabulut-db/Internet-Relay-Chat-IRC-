@@ -1,9 +1,18 @@
 #include "ft_irc.hpp"
 
-int Server::CheckPRVMSG(const std::string &data, const Server &server)
-{
-    (void)server; // kullanılmıyor ama kalsın
 
+// IRC için ince sarmalayıcı
+void Server::sendLine(int fd, const std::string &line)
+{
+    std::string out = line;
+    if (out.size() < 2 || out.substr(out.size()-2) != "\r\n")
+        out += "\r\n";               // IRC satır sonu garanti
+    dataSending(fd, out);            // senin mevcut fonksiyon
+}
+
+
+int Server::CheckPRVMSG(const std::string &data, int clientSocket)
+{
     std::string s = trim(data);
     if (s.size() < 9) 
         return -1;
@@ -32,9 +41,11 @@ int Server::CheckPRVMSG(const std::string &data, const Server &server)
     if (msg.empty()) 
         return -1;
 
-    if (!this->hasNick(target)) 
+    if (!this->hasNick(target))
+    {
         return -2; // hedef yok
-
+        sendLine(this->returnClient(clientSocket).getFd(), ": irc.local  401 " + this->returnClient(clientSocket).getNick() + " " + target + " :No such nick/channel");
+    }
     return 0; // her şey doğru
 }
 
@@ -290,7 +301,7 @@ void Server::clientDataHandling(int client_Socket, Server &server)
                     dataSending(client_Socket, cong);
                     server.returnClient(client_Socket).setAuHChecked(false);
                 }
-                if (CheckPRVMSG(data, server) == -2)
+                if (CheckPRVMSG(data, client_Socket))
                     dataSending(client_Socket, "401 :No such nick");
             }
         }

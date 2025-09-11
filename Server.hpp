@@ -42,8 +42,9 @@ public:
         if(serverSocket != -1)
             std::cerr << "socket closed.\n";
     };
-    int CheckPRVMSG(const std::string &data, const Server &server);
+    int CheckPRVMSG(const std::string &data, int clientSocket);
     bool hasNick(const std::string& nick) const;
+    void sendLine(int fd, const std::string &line);
 
 };
 
