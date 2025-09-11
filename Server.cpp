@@ -1,5 +1,56 @@
 #include "ft_irc.hpp"
 
+int Server::CheckPRVMSG(const std::string &data, const Server &server)
+{
+    (void)server; // kullanılmıyor ama kalsın
+
+    std::string s = trim(data);
+    if (s.size() < 9) 
+        return -1;
+
+    if (s.compare(0, 8, "PRIVMSG ") != 0) 
+        return -1;
+
+    std::string rest = s.substr(8);
+    std::string::size_type sp = rest.find(' ');
+    if (sp == std::string::npos || sp == 0) 
+        return -1;
+
+    std::string target = rest.substr(0, sp);
+
+    std::string::size_type i = sp + 1;
+    while (i < rest.size() && (rest[i] == ' ' || rest[i] == '\t'))
+        ++i;
+    if (i >= rest.size()) 
+        return -1;
+
+    std::string tail = rest.substr(i);
+    if (tail.empty() || tail[0] != ':') 
+        return -1;
+
+    std::string msg = trim(tail.substr(1));
+    if (msg.empty()) 
+        return -1;
+
+    if (!this->hasNick(target)) 
+        return -2; // hedef yok
+
+    return 0; // her şey doğru
+}
+
+
+bool Server::hasNick(const std::string& nick) const
+{
+    for (std::map<int, Client>::const_iterator it = clientInfo.begin();
+         it != clientInfo.end(); ++it)
+    {
+        if (it->second.getNick() == nick)
+            return true;
+    }
+    return false;
+}
+
+
 Client& Server::returnClient(int client_socket)
 {
     std::map<int, Client>::iterator it = clientInfo.find(client_socket);
@@ -222,27 +273,29 @@ void Server::clientDataHandling(int client_Socket, Server &server)
         }
         if(!data.empty())
         {
-            //if (checkAuthentication(data, server, client_Socket) == -1)
-            //{
-            //    ////////////////////////////// EXIT PART ///////////////////////////BAZEN BURAYA 2 KERE GİRİYOR NEDENİNİ ANLAMADIM ŞEKİLDE BUNA SONRA BAK
-            //    perror("Authentication failed");
-            //    //disconnect(client_Socket);
-            //}
-            //else
-            //{
-              //  if (server.returnClient(client_Socket).getHAuthed())
-              //  {
+            if (checkAuthentication(data, server, client_Socket) == -1)
+            {
+                ////////////////////////////// EXIT PART ///////////////////////////BAZEN BURAYA 2 KERE GİRİYOR NEDENİNİ ANLAMADIM ŞEKİLDE BUNA SONRA BAK
+                perror("Authentication failed");
+                //disconnect(client_Socket);
+            }
+            else
+            {
+                if (server.returnClient(client_Socket).getHAuthed() && server.returnClient(client_Socket).getAuHchecked())
+                {
                     std::cout << "veri : " << data << std::endl;
                      //PARSE KISIM
                     std::string deneme = "MESAJ :  " + data;
-                //    std::string cong = server.returnClient(client_Socket).getNick() + "congrates now you are with us";
-                //    dataSending(client_Socket, cong);
-                //}
-            // }
+                    std::string cong = server.returnClient(client_Socket).getNick() + "congrates now you are with us";
+                    dataSending(client_Socket, cong);
+                    server.returnClient(client_Socket).setAuHChecked(false);
+                }
+                if (CheckPRVMSG(data, server) == -2)
+                    dataSending(client_Socket, "401 :No such nick");
+            }
         }
     }
 }
-
 void Server::run()
 {
 	struct epoll_event events[MAX_EVENTS];

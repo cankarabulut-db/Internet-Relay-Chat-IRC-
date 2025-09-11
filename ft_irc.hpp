@@ -24,4 +24,6 @@
 size_t	findNthSpace(const std::string& str, int n);
 std::string getAfterColon(const std::string& str);
 int     checkAuthentication(std::string data, Server &server, int client_server);
+std::string trim(const std::string& s);
+
 #endif

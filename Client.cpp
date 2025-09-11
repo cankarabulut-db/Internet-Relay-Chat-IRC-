@@ -1,22 +1,30 @@
 #include "Client.hpp"
 
-Client::Client(int fd): fd(fd), hasPassed(false), hasNick(false), hasUser(false), isAuthed(false) {}
+Client::Client(int fd): fd(fd), hasPassed(false), hasNick(false), hasUser(false), isAuthed(false), AuHasChecked(false){}
 Client::Client(int fd, const std::string &ip, int port): fd(fd)
-, ip(ip), port(port), hasPassed(false), hasNick(false), hasUser(false), isAuthed(false) {}
+, ip(ip), port(port), hasPassed(false), hasNick(false), hasUser(false), isAuthed(false), AuHasChecked(false){}
 
 
 int Client::getFd() const { return fd; }
 
-void Client::setNick(const std::string nick) {
+void Client::setNick(const std::string nick)
+{
     this->nickname = nick;
     this->hasNick = true;
 }
 
-void Client::setUser(const std::string &user, const std::string &real) {
+void    Client::setAuHChecked(bool ok)
+{
+    this->AuHasChecked = ok;
+}
+
+void Client::setUser(const std::string &user, const std::string &real)
+{
     this->username = user;
     this->realname = real;
     this->hasUser = true;
 }
+
 
 void Client::setPass(bool ok) {
     this->hasPassed = ok;
@@ -26,12 +34,16 @@ bool Client::getHPass() const { return hasPassed; }
 bool Client::getHNick() const { return hasNick; }
 bool Client::getHUser() const { return hasUser; }
 bool Client::getHAuthed() const { return isAuthed; }
+bool Client::getAuHchecked() const { return AuHasChecked; }
 
 void Client::authenticate()
 {
     std::cout << "p" << this->hasPassed << "n" << this->hasNick << "u" << this->hasUser << std::endl;
     if (this->hasPassed && this->hasNick && this->hasUser)
+    {
         this->isAuthed = true;
+        this->AuHasChecked = true;
+    }
 }
 
 std::string Client::getNick() const { return nickname; }

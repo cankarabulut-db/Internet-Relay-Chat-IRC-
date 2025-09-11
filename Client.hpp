@@ -21,6 +21,7 @@ private:
     bool        hasNick;
     bool        hasUser;
     bool        isAuthed;
+    bool        AuHasChecked;
 
 public:
     Client(int fd, const std::string &ip, int port);
@@ -30,11 +31,13 @@ public:
     void setNick(const std::string nick);
     void setUser(const std::string &user, const std::string &real);
     void setPass(bool ok);
+    void setAuHChecked(bool ok);
 
     bool getHPass() const;
     bool getHNick() const;
     bool getHUser() const;
     bool getHAuthed() const;
+    bool getAuHchecked() const;
 
     void authenticate();
     std::string getNick() const;
@@ -43,7 +46,6 @@ public:
     int     checkPassword(std::string data, Server const &server);
     int     checkNick(std::string data, Server const &server);
     int     checkUser(std::string data, Server const &server);
-
 };
 
 #endif

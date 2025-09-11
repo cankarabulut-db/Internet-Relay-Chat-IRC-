@@ -1,5 +1,16 @@
 #include "ft_irc.hpp"
 
+std::string trim(const std::string& s)
+{
+    std::string::size_type a = 0;
+    std::string::size_type b = s.size();
+    while (a < b && (s[a]==' '||s[a]=='\r'||s[a]=='\n'||s[a]=='\t'))
+        ++a;
+    while (b > a && (s[b-1]==' '||s[b-1]=='\r'||s[b-1]=='\n'||s[b-1]=='\t'))
+        --b;
+    return s.substr(a, b-a);
+}
+
 std::string getAfterColon(const std::string& str)
 {
     size_t colonPos = str.find(':');
@@ -15,19 +26,25 @@ size_t findNthSpace(const std::string& str, int n) {
     for (int i = 0; i < n; i++)
     {
         pos = str.find(' ', pos + 1);
-        if (pos == std::string::npos) break;
+        if (pos == std::string::npos)
+            break;
     }
     return pos;
 }
 
 int     checkAuthentication(std::string data, Server &server, int client_socket)
 {
-    if (server.returnClient(client_socket).checkPassword(data, server) == 0)
-        return (0);
-    else if (server.returnClient(client_socket).checkNick(data, server) == 0)
-        return (0);
-    else if (server.returnClient(client_socket).checkUser(data, server) == 0)
-        return (0);
+    if (server.returnClient(client_socket).getHAuthed())
+        return (1);
+    else
+    {
+        if (server.returnClient(client_socket).checkPassword(data, server) == 0)
+            return (0);
+        else if (server.returnClient(client_socket).checkNick(data, server) == 0)
+            return (0);
+        else if (server.returnClient(client_socket).checkUser(data, server) == 0)
+            return (0);
+    }
     return (-1);
 }
 

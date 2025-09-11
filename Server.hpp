@@ -33,6 +33,8 @@ public:
     void disconnect(int client);
     void run();
 
+
+
     Client &returnClient(int client_socket);
     std::string getPassword() const;
     ~Server()
@@ -40,6 +42,9 @@ public:
         if(serverSocket != -1)
             std::cerr << "socket closed.\n";
     };
+    int CheckPRVMSG(const std::string &data, const Server &server);
+    bool hasNick(const std::string& nick) const;
+
 };
 
 #endif
