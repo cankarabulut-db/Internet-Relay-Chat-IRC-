@@ -1,52 +1,51 @@
 #ifndef CLIENT_HPP
 #define CLIENT_HPP
 
-#include "ft_irc.hpp"
-
-class Server;
+#include <string>
 
 class Client
 {
 private:
-    int         fd;
-    int         clientSocket;
+    int fd;
     std::string ip;
-    int         port;
-
+    int port;
+    
     std::string nickname;
     std::string username;
     std::string realname;
+    std::string hostname;
     
-    bool        hasPassed;
-    bool        hasNick;
-    bool        hasUser;
-    bool        isAuthed;
-    bool        AuHasChecked;
+    bool hasPassed;
+    bool hasNick;
+    bool hasUser;
+    bool isRegistered;
 
 public:
-    Client(int fd, const std::string &ip, int port);
-    Client(int fd);
+    Client();
+    Client(int fd, const std::string& ip, int port);
+    
+    // Getters
     int getFd() const;
-
-    void setNick(const std::string nick);
-    void setUser(const std::string &user, const std::string &real);
-    void setPass(bool ok);
-    void setAuHChecked(bool ok);
-
-    bool getHPass() const;
-    bool getHNick() const;
-    bool getHUser() const;
-    bool getHAuthed() const;
-    bool getAuHchecked() const;
-
-    void authenticate();
     std::string getNick() const;
     std::string getUser() const;
-
-    int     checkPassword(std::string data, Server const &server);
-    int     checkNick(std::string data, Server const &server);
-    int     checkUser(std::string data, Server const &server);
-
+    std::string getReal() const;
+    std::string getHostname() const;
+    std::string getPrefix() const;
+    
+    bool getHasPassed() const;
+    bool getHasNick() const;
+    bool getHasUser() const;
+    bool getIsRegistered() const;
+    
+    // Setters
+    void setNick(const std::string& nick);
+    void setUser(const std::string& user, const std::string& real);
+    void setPass(bool passed);
+    void setRegistered(bool registered);
+    void setHostname(const std::string& host);
+    
+    // Authentication check
+    void checkRegistration();
 };
 
 #endif

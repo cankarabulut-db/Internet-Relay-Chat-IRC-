@@ -1,95 +1,107 @@
 #include "Client.hpp"
 
-Client::Client(int fd): fd(fd), hasPassed(false), hasNick(false), hasUser(false), isAuthed(false), AuHasChecked(false){}
-Client::Client(int fd, const std::string &ip, int port): fd(fd)
-, ip(ip), port(port), hasPassed(false), hasNick(false), hasUser(false), isAuthed(false), AuHasChecked(false){}
-
-
-int Client::getFd() const { return fd; }
-
-void Client::setNick(const std::string nick)
+Client::Client() 
+    : fd(-1), port(0), hasPassed(false), hasNick(false), 
+      hasUser(false), isRegistered(false)
 {
-    this->nickname = nick;
-    this->hasNick = true;
 }
 
-void    Client::setAuHChecked(bool ok)
+Client::Client(int fd, const std::string& ip, int port)
+    : fd(fd), ip(ip), port(port), hostname("localhost"),
+      hasPassed(false), hasNick(false), hasUser(false), isRegistered(false)
 {
-    this->AuHasChecked = ok;
 }
 
-void Client::setUser(const std::string &user, const std::string &real)
-{
-    this->username = user;
-    this->realname = real;
-    this->hasUser = true;
+// Getters
+int Client::getFd() const 
+{ 
+    return fd; 
 }
 
-
-void Client::setPass(bool ok) {
-    this->hasPassed = ok;
+std::string Client::getNick() const 
+{ 
+    return nickname; 
 }
 
-bool Client::getHPass() const { return hasPassed; }
-bool Client::getHNick() const { return hasNick; }
-bool Client::getHUser() const { return hasUser; }
-bool Client::getHAuthed() const { return isAuthed; }
-bool Client::getAuHchecked() const { return AuHasChecked; }
+std::string Client::getUser() const 
+{ 
+    return username; 
+}
 
-void Client::authenticate()
+std::string Client::getReal() const 
+{ 
+    return realname; 
+}
+
+std::string Client::getHostname() const 
+{ 
+    return hostname; 
+}
+
+std::string Client::getPrefix() const
 {
-    std::cout << "p" << this->hasPassed << "n" << this->hasNick << "u" << this->hasUser << std::endl;
-    if (this->hasPassed && this->hasNick && this->hasUser)
+    if (nickname.empty())
+        return "";
+    return nickname + "!" + username + "@" + hostname;
+}
+
+bool Client::getHasPassed() const 
+{ 
+    return hasPassed; 
+}
+
+bool Client::getHasNick() const 
+{ 
+    return hasNick; 
+}
+
+bool Client::getHasUser() const 
+{ 
+    return hasUser; 
+}
+
+bool Client::getIsRegistered() const 
+{ 
+    return isRegistered; 
+}
+
+// Setters
+void Client::setNick(const std::string& nick)
+{
+    nickname = nick;
+    hasNick = true;
+    checkRegistration();
+}
+
+void Client::setUser(const std::string& user, const std::string& real)
+{
+    username = user;
+    realname = real;
+    hasUser = true;
+    checkRegistration();
+}
+
+void Client::setPass(bool passed)
+{
+    hasPassed = passed;
+    checkRegistration();
+}
+
+void Client::setRegistered(bool registered)
+{
+    isRegistered = registered;
+}
+
+void Client::setHostname(const std::string& host)
+{
+    hostname = host;
+}
+
+// Authentication check
+void Client::checkRegistration()
+{
+    if (hasPassed && hasNick && hasUser && !isRegistered)
     {
-        this->isAuthed = true;
-        this->AuHasChecked = true;
+        isRegistered = true;
     }
-}
-
-std::string Client::getNick() const { return nickname; }
-std::string Client::getUser() const { return username; }
-
-int     Client::checkNick(std::string data, Server const &server)
-{
-    (void)server; // bu kısma baka nick kontolu için
-    const char* purpose = "NICK";
-    if ((strcmp(data.substr(0, 4).c_str(), purpose) != 0))
-    {
-        // std::cout <<  "Invalid entry " << std::endl;
-        return (-1);
-    }
-    this->setNick(data.substr(5, strlen(data.c_str()) - 5));
-    this->authenticate();
-    std::cout << "nick:" << this->hasNick <<this->getHAuthed() << "\n";
-    return (0);
-}
-
-int     Client::checkUser(std::string data, Server const &server)
-{
-    (void)server;
-    const char* purpose = "USER";
-    if ((strcmp(data.substr(0, 4).c_str(), purpose) != 0) || (strlen(data.substr(5, 20).c_str()) > 20) || (strlen(data.substr(data.find(':'), 40).c_str()) > 40))
-    {
-        // std::cout <<  "Invalid entry " << std::endl;
-        return (-1);
-    }
-    this->hasUser = true;
-    this->setUser(data.substr(5, findNthSpace(data, 2) - 3), getAfterColon(data));
-    this->authenticate();
-    std::cout << "user:"<< this->hasUser << this->getHAuthed() << "\n";
-    return (0);
-}
-
-int     Client::checkPassword(std::string data, Server const &server)
-{
-    const char* purpose = "PASS";
-    if ((strcmp(data.substr(0, 4).c_str(), purpose) != 0) || (strcmp(server.getPassword().c_str(), data.substr(5, strlen(server.getPassword().c_str())).c_str()) != 0))
-    {
-        // std::cout <<  "Invalid entry " << std::endl;
-        return (-1);
-    }
-    this->hasPassed = true;
-    this->authenticate();
-    std::cout <<"pass:" << this->hasPassed << this->getHAuthed() << "\n";
-    return (0);
 }

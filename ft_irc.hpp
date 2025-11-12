@@ -1,29 +1,34 @@
-#ifndef FT_IRC
-#define FT_IRC
-
+#ifndef FT_IRC_HPP
+#define FT_IRC_HPP
 
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
-#include <algorithm>
+#include <sys/epoll.h>
 #include <fcntl.h>
+
 #include <iostream>
-#include <cstring>
-#include <cerrno>
+#include <string>
 #include <vector>
 #include <map>
-#include <sys/epoll.h>
-#include <unistd.h>
+#include <set>
+#include <algorithm>
 #include <cstring>
-#include <stdio.h>
+#include <cerrno>
+#include <sstream>
+#include <cstdlib>
+#include <cstdio>
 
-#include "Server.hpp"
 #include "Client.hpp"
+#include "Server.hpp"
+#include "Channel.hpp"
+#include "Message.hpp"
+#include "Replies.hpp"
 
-size_t	findNthSpace(const std::string& str, int n);
-std::string getAfterColon(const std::string& str);
-int     checkAuthentication(std::string data, Server &server, int client_server);
-std::string trim(const std::string& s);
+// Utility functions
+std::string trim(const std::string& str);
+bool isValidNickname(const std::string& nick);
+bool isValidChannelName(const std::string& name);
 
 #endif

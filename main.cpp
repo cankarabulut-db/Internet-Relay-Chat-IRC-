@@ -1,83 +1,103 @@
 #include "ft_irc.hpp"
+#include <cctype>
 
-std::string trim(const std::string& s)
+std::string trim(const std::string& str)
 {
-    std::string::size_type a = 0;
-    std::string::size_type b = s.size();
-    while (a < b && (s[a]==' '||s[a]=='\r'||s[a]=='\n'||s[a]=='\t'))
-        ++a;
-    while (b > a && (s[b-1]==' '||s[b-1]=='\r'||s[b-1]=='\n'||s[b-1]=='\t'))
-        --b;
-    return s.substr(a, b-a);
+    std::string::size_type start = 0;
+    std::string::size_type end = str.size();
+    
+    while (start < end && std::isspace(static_cast<unsigned char>(str[start])))
+        ++start;
+    
+    while (end > start && std::isspace(static_cast<unsigned char>(str[end - 1])))
+        --end;
+    
+    return str.substr(start, end - start);
 }
 
-std::string getAfterColon(const std::string& str)
+bool isValidNickname(const std::string& nick)
 {
-    size_t colonPos = str.find(':');
-    if (colonPos == std::string::npos)
+    if (nick.empty() || nick.length() > 9)
+        return false;
+    
+    // First character must be a letter
+    if (!std::isalpha(static_cast<unsigned char>(nick[0])))
+        return false;
+    
+    // Rest can be letters, digits, or special characters
+    for (size_t i = 1; i < nick.length(); ++i)
     {
-        return "";  // ':' bulunamazsa boş string döndür
+        char c = nick[i];
+        if (!std::isalnum(static_cast<unsigned char>(c)) && 
+            c != '-' && c != '_' && c != '[' && c != ']' && 
+            c != '{' && c != '}' && c != '\\' && c != '|')
+            return false;
     }
-    return str.substr(colonPos + 1);
+    
+    return true;
 }
 
-size_t findNthSpace(const std::string& str, int n) {
-    size_t pos = -1;
-    for (int i = 0; i < n; i++)
+bool isValidChannelName(const std::string& name)
+{
+    if (name.empty() || name.length() > 50)
+        return false;
+    
+    // Must start with # or &
+    if (name[0] != '#' && name[0] != '&')
+        return false;
+    
+    // Check for invalid characters (space, comma, colon)
+    for (size_t i = 1; i < name.length(); ++i)
     {
-        pos = str.find(' ', pos + 1);
-        if (pos == std::string::npos)
-            break;
+        char c = name[i];
+        if (c == ' ' || c == ',' || c == ':' || c == 7)
+            return false;
     }
-    return pos;
+    
+    return true;
 }
 
-int     checkAuthentication(std::string data, Server &server, int client_socket)
+int main(int argc, char** argv)
 {
-    if (server.returnClient(client_socket).getHAuthed())
-        return (1);
-    else
+    if (argc != 3)
     {
-        if (server.returnClient(client_socket).checkPassword(data, server) == 0)
-            return (0);
-        else if (server.returnClient(client_socket).checkNick(data, server) == 0)
-            return (0);
-        else if (server.returnClient(client_socket).checkUser(data, server) == 0)
-            return (0);
+        std::cout << "Usage: ./ircserv <port> <password>" << std::endl;
+        return 1;
     }
-    return (-1);
-}
-
-int main(int ac,char **av)
-{
-    if(ac != 3)
+    
+    int port = atoi(argv[1]);
+    std::string password = argv[2];
+    
+    if (port <= 0 || port > 65535)
     {
-        std::cout << "Usage : ./ircserver <port> <password>\n";
-        return (1);
+        std::cerr << "Error: Invalid port number" << std::endl;
+        return 1;
     }
-    int port = atoi(av[1]);
-    std::string password = (av[2]);
-    if(port <= 0 || port > 65535)
+    
+    if (password.empty())
     {
-        std::cerr << "Wrong port address.\n";
-        return (1); 
+        std::cerr << "Error: Password cannot be empty" << std::endl;
+        return 1;
     }
-	std::cout << "<===============================>\n";
-	std::cout << "<==>        IRC SERVER       <==>\n";
-	std::cout << "<===============================>\n";
-	std::cout << "<==>       PORT : " << port << "       <==>\n" ;
-	std::cout << "<===============================>\n";
-	std::cout << "* Password : " << password << std::endl;
-   try 
-   {
-    	Server server(port, password);
-     
-    	server.socketArrangement();
+    
+    std::cout << "================================" << std::endl;
+    std::cout << "      IRC SERVER v1.0          " << std::endl;
+    std::cout << "================================" << std::endl;
+    std::cout << "Port: " << port << std::endl;
+    std::cout << "Password: " << password << std::endl;
+    std::cout << "================================" << std::endl;
+    
+    try
+    {
+        Server server(port, password);
+        server.socketArrangement();
         server.run();
-        std::cin.get();
-    } catch (const std::exception& e) {
+    }
+    catch (const std::exception& e)
+    {
         std::cerr << "Exception: " << e.what() << std::endl;
         return 1;
     }
-    return (0);
+    
+    return 0;
 }

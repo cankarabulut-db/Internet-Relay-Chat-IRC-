@@ -2,7 +2,10 @@
 #define SERVER_HPP
 
 #include "ft_irc.hpp"
+
 class Client;
+class Channel;
+class Message;
 
 class Server
 {
@@ -13,41 +16,74 @@ private:
     int epollFd;
     std::vector<int> clientSockets;
     std::map<int, Client> clientInfo;
+    std::map<std::string, Channel*> channels;
+    std::map<int, std::string> clientBuffers;
     struct sockaddr_in serverAddr;
     const int MAX_EVENTS;
+
 public:
     Server(int port, std::string password);
+    ~Server();
+    
+    // Setup
     void socketArrangement();
-    int getSocket(){return serverSocket;};
-    int getPollFd(){return epollFd;};
     void setNonBlock(int fd);
     void setSocketAndBind();
     void ePollThings();
-    void Add_To_Epoll(int fd, uint32_t events);
-    void mod_Epoll(int fd, uint32_t events);
-    void acceptNewClient();
-    void clientDataHandling(int client_Socket, Server &server); // fonksiyon değişti
-    void dataSending(int cSock, const std::string &data);
     void Listen();
+    
+    // Epoll management
+    void addToEpoll(int fd, uint32_t events);
+    void modEpoll(int fd, uint32_t events);
     void removeFromEpoll(int fd);
-    void disconnect(int client);
-    void run();
-
-
-
-    Client &returnClient(int client_socket);
-    std::string getPassword() const;
-    ~Server()
-    {
-        if(serverSocket != -1)
-            std::cerr << "socket closed.\n";
-    };
-    int CheckPRVMSG(const std::string &data, int clientSocket);
+    
+    // Client management
+    void acceptNewClient();
+    void handleClientData(int clientSocket);
+    void disconnect(int clientSocket);
+    
+    // Message handling
+    void processMessage(int clientSocket, const Message& msg);
+    void sendMessage(int fd, const std::string &data);
+    
+    // Command handlers
+    void handlePass(int fd, const Message& msg);
+    void handleNick(int fd, const Message& msg);
+    void handleUser(int fd, const Message& msg);
+    void handleJoin(int fd, const Message& msg);
+    void handlePart(int fd, const Message& msg);
+    void handlePrivmsg(int fd, const Message& msg);
+    void handleKick(int fd, const Message& msg);
+    void handleInvite(int fd, const Message& msg);
+    void handleTopic(int fd, const Message& msg);
+    void handleMode(int fd, const Message& msg);
+    void handleQuit(int fd, const Message& msg);
+    void handleHelp(int fd, const Message& msg);
+    
+    // Helper functions
+    Client& getClient(int fd);
+    const Client& getClient(int fd) const;
     bool hasNick(const std::string& nick) const;
-    void sendLine(int fd, const std::string &line);
-    int fdByNick(const std::string &nick) const;
-    std::string nickByFd(int fd) const;
-
+    int getFdByNick(const std::string& nick) const;
+    std::string getNickByFd(int fd) const;
+    std::string getPassword() const;
+    
+    // Channel management
+    Channel* getChannel(const std::string& name);
+    Channel* createChannel(const std::string& name);
+    void deleteChannel(const std::string& name);
+    bool channelExists(const std::string& name) const;
+    void removeClientFromAllChannels(int fd);
+    
+    // Broadcasting
+    void broadcastToChannel(const std::string& channelName, const std::string& message, int excludeFd);
+    
+    // Main loop
+    void run();
+    
+    // Getters
+    int getSocket() const { return serverSocket; }
+    int getPollFd() const { return epollFd; }
 };
 
 #endif

@@ -1,0 +1,10 @@
+PASS password123
+NICK ahmet
+USER ahmet 0 * :Ahmet Yilmaz
+JOIN #test
+PRIVMSG #test :Hello Everyone!
+TOPIC #test
+TOPIC #test :Welcome to test channel
+MODE #test +t
+PART #test :Goodbye
+QUIT :Leaving

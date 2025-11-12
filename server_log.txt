@@ -1,0 +1,12 @@
+================================
+      IRC SERVER v1.0          
+================================
+Port: 6667
+Password: password123
+================================
+Server listening on port 6667...
+Server is running...
+New client connected: 5
+Disconnecting client: 5
+Client 5 disconnected.
+New client connected: 5
