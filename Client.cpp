@@ -12,7 +12,6 @@ Client::Client(int fd, const std::string& ip, int port)
 {
 }
 
-// Getters
 int Client::getFd() const 
 { 
     return fd; 
@@ -65,7 +64,6 @@ bool Client::getIsRegistered() const
     return isRegistered; 
 }
 
-// Setters
 void Client::setNick(const std::string& nick)
 {
     nickname = nick;
@@ -97,7 +95,6 @@ void Client::setHostname(const std::string& host)
     hostname = host;
 }
 
-// Authentication check
 void Client::checkRegistration()
 {
     if (hasPassed && hasNick && hasUser && !isRegistered)

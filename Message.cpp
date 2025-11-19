@@ -21,7 +21,6 @@ bool Message::parse(const std::string& rawMessage)
     
     std::string line = rawMessage;
     
-    // Remove trailing \r\n
     if (line.size() >= 2 && line.substr(line.size() - 2) == "\r\n")
         line = line.substr(0, line.size() - 2);
     else if (!line.empty() && line[line.size() - 1] == '\n')
@@ -32,7 +31,6 @@ bool Message::parse(const std::string& rawMessage)
     
     size_t pos = 0;
     
-    // Parse prefix (optional)
     if (line[0] == ':')
     {
         size_t spacePos = line.find(' ', 1);
@@ -43,14 +41,12 @@ bool Message::parse(const std::string& rawMessage)
         pos = spacePos + 1;
     }
     
-    // Skip spaces
     while (pos < line.size() && line[pos] == ' ')
         ++pos;
     
     if (pos >= line.size())
         return false;
     
-    // Parse command
     size_t cmdEnd = pos;
     while (cmdEnd < line.size() && line[cmdEnd] != ' ')
         ++cmdEnd;
@@ -58,24 +54,20 @@ bool Message::parse(const std::string& rawMessage)
     command = line.substr(pos, cmdEnd - pos);
     pos = cmdEnd;
     
-    // Parse parameters
     while (pos < line.size())
     {
-        // Skip spaces
         while (pos < line.size() && line[pos] == ' ')
             ++pos;
         
         if (pos >= line.size())
             break;
         
-        // Trailing parameter (starts with ':')
         if (line[pos] == ':')
         {
             params.push_back(line.substr(pos + 1));
             break;
         }
         
-        // Normal parameter
         size_t paramEnd = pos;
         while (paramEnd < line.size() && line[paramEnd] != ' ')
             ++paramEnd;
@@ -124,7 +116,6 @@ bool Message::isValid() const
     return !command.empty();
 }
 
-// Helper functions
 std::vector<std::string> splitMessages(const std::string& data)
 {
     std::vector<std::string> messages;

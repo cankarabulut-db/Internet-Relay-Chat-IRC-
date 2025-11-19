@@ -215,7 +215,6 @@ void Server::handleClientData(int clientSocket)
         }
     }
     
-    // Process complete messages (handle both \r\n and \n)
     std::string& buffer_ref = clientBuffers[clientSocket];
     size_t pos;
     
@@ -223,7 +222,6 @@ void Server::handleClientData(int clientSocket)
     {
         std::string line = buffer_ref.substr(0, pos);
         
-        // Remove \r if present
         if (!line.empty() && line[line.length() - 1] == '\r')
             line = line.substr(0, line.length() - 1);
         

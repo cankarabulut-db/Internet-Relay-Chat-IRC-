@@ -24,7 +24,6 @@ public:
     Client();
     Client(int fd, const std::string& ip, int port);
     
-    // Getters
     int getFd() const;
     std::string getNick() const;
     std::string getUser() const;
@@ -37,14 +36,12 @@ public:
     bool getHasUser() const;
     bool getIsRegistered() const;
     
-    // Setters
     void setNick(const std::string& nick);
     void setUser(const std::string& user, const std::string& real);
     void setPass(bool passed);
     void setRegistered(bool registered);
     void setHostname(const std::string& host);
     
-    // Authentication check
     void checkRegistration();
 };
 

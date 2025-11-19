@@ -4,7 +4,6 @@
 #include <string>
 #include <sstream>
 
-// Helper function declarations
 std::string RPL_WELCOME(const std::string& nick, const std::string& user, const std::string& host);
 std::string RPL_YOURHOST(const std::string& nick);
 std::string RPL_CREATED(const std::string& nick);

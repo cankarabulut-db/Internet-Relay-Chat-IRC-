@@ -26,7 +26,6 @@
 #include "Message.hpp"
 #include "Replies.hpp"
 
-// Utility functions
 std::string trim(const std::string& str);
 bool isValidNickname(const std::string& nick);
 bool isValidChannelName(const std::string& name);

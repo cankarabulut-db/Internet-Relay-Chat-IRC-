@@ -20,11 +20,9 @@ bool isValidNickname(const std::string& nick)
     if (nick.empty() || nick.length() > 9)
         return false;
     
-    // First character must be a letter
     if (!std::isalpha(static_cast<unsigned char>(nick[0])))
         return false;
     
-    // Rest can be letters, digits, or special characters
     for (size_t i = 1; i < nick.length(); ++i)
     {
         char c = nick[i];
@@ -42,11 +40,9 @@ bool isValidChannelName(const std::string& name)
     if (name.empty() || name.length() > 50)
         return false;
     
-    // Must start with # or &
     if (name[0] != '#' && name[0] != '&')
         return false;
     
-    // Check for invalid characters (space, comma, colon)
     for (size_t i = 1; i < name.length(); ++i)
     {
         char c = name[i];

@@ -25,28 +25,24 @@ public:
     Server(int port, std::string password);
     ~Server();
     
-    // Setup
     void socketArrangement();
     void setNonBlock(int fd);
     void setSocketAndBind();
     void ePollThings();
     void Listen();
     
-    // Epoll management
     void addToEpoll(int fd, uint32_t events);
     void modEpoll(int fd, uint32_t events);
     void removeFromEpoll(int fd);
     
-    // Client management
     void acceptNewClient();
     void handleClientData(int clientSocket);
     void disconnect(int clientSocket);
     
-    // Message handling
     void processMessage(int clientSocket, const Message& msg);
     void sendMessage(int fd, const std::string &data);
     
-    // Command handlers
+    void handleCap(int fd, const Message& msg);
     void handlePass(int fd, const Message& msg);
     void handleNick(int fd, const Message& msg);
     void handleUser(int fd, const Message& msg);
@@ -58,9 +54,9 @@ public:
     void handleTopic(int fd, const Message& msg);
     void handleMode(int fd, const Message& msg);
     void handleQuit(int fd, const Message& msg);
+    void handleWho(int fd, const Message& msg);
     void handleHelp(int fd, const Message& msg);
     
-    // Helper functions
     Client& getClient(int fd);
     const Client& getClient(int fd) const;
     bool hasNick(const std::string& nick) const;
@@ -68,20 +64,16 @@ public:
     std::string getNickByFd(int fd) const;
     std::string getPassword() const;
     
-    // Channel management
     Channel* getChannel(const std::string& name);
     Channel* createChannel(const std::string& name);
     void deleteChannel(const std::string& name);
     bool channelExists(const std::string& name) const;
     void removeClientFromAllChannels(int fd);
     
-    // Broadcasting
     void broadcastToChannel(const std::string& channelName, const std::string& message, int excludeFd);
     
-    // Main loop
     void run();
     
-    // Getters
     int getSocket() const { return serverSocket; }
     int getPollFd() const { return epollFd; }
 };

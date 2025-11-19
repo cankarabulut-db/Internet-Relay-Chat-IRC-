@@ -27,25 +27,21 @@ private:
 public:
     Channel(const std::string& name);
     
-    // Member management
     void addMember(int fd);
     void removeMember(int fd);
     bool isMember(int fd) const;
     const std::set<int>& getMembers() const;
     size_t getMemberCount() const;
     
-    // Operator management
     void addOperator(int fd);
     void removeOperator(int fd);
     bool isOperator(int fd) const;
     const std::set<int>& getOperators() const;
     
-    // Invite management
     void addInvite(const std::string& nick);
     void removeInvite(const std::string& nick);
     bool isInvited(const std::string& nick) const;
     
-    // Mode management
     void setInviteOnly(bool value);
     void setTopicRestricted(bool value);
     void setKey(const std::string& newKey);
@@ -60,14 +56,11 @@ public:
     const std::string& getKey() const;
     size_t getUserLimit() const;
     
-    // Topic management
     void setTopic(const std::string& newTopic);
     const std::string& getTopic() const;
     
-    // Name
     const std::string& getName() const;
     
-    // Mode string
     std::string getModeString() const;
 };
 

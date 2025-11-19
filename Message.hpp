@@ -28,7 +28,6 @@ public:
     bool isValid() const;
 };
 
-// Helper functions
 std::vector<std::string> splitMessages(const std::string& data);
 std::string toUpper(const std::string& str);
 

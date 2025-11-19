@@ -6,7 +6,6 @@ Channel::Channel(const std::string& name)
 {
 }
 
-// Member management
 void Channel::addMember(int fd)
 {
     members.insert(fd);
@@ -33,7 +32,6 @@ size_t Channel::getMemberCount() const
     return members.size();
 }
 
-// Operator management
 void Channel::addOperator(int fd)
 {
     operators.insert(fd);
@@ -54,7 +52,6 @@ const std::set<int>& Channel::getOperators() const
     return operators;
 }
 
-// Invite management
 void Channel::addInvite(const std::string& nick)
 {
     inviteList.insert(nick);
@@ -70,7 +67,6 @@ bool Channel::isInvited(const std::string& nick) const
     return inviteList.find(nick) != inviteList.end();
 }
 
-// Mode management
 void Channel::setInviteOnly(bool value)
 {
     inviteOnly = value;
@@ -135,7 +131,6 @@ size_t Channel::getUserLimit() const
     return userLimit;
 }
 
-// Topic management
 void Channel::setTopic(const std::string& newTopic)
 {
     topic = newTopic;
@@ -146,13 +141,11 @@ const std::string& Channel::getTopic() const
     return topic;
 }
 
-// Name
 const std::string& Channel::getName() const
 {
     return name;
 }
 
-// Mode string
 std::string Channel::getModeString() const
 {
     std::string modes = "+";

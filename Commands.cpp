@@ -1,14 +1,14 @@
 #include "ft_irc.hpp"
 
-// Process incoming message and route to appropriate command handler
 void Server::processMessage(int fd, const Message& msg)
 {
     std::string cmd = toUpper(msg.getCommand());
     
     Client& client = getClient(fd);
     
-    // Commands that can be used before registration
-    if (cmd == "PASS")
+    if (cmd == "CAP")
+        handleCap(fd, msg);
+    else if (cmd == "PASS")
         handlePass(fd, msg);
     else if (cmd == "NICK")
         handleNick(fd, msg);
@@ -16,7 +16,8 @@ void Server::processMessage(int fd, const Message& msg)
         handleUser(fd, msg);
     else if (cmd == "QUIT")
         handleQuit(fd, msg);
-    // Commands that require registration
+    else if (cmd == "AUTHENTICATE" || cmd == "SA")
+        return;
     else if (!client.getIsRegistered())
     {
         sendMessage(fd, ERR_NOTREGISTERED(client.getNick().empty() ? "*" : client.getNick()));
@@ -35,15 +36,24 @@ void Server::processMessage(int fd, const Message& msg)
         handleTopic(fd, msg);
     else if (cmd == "MODE")
         handleMode(fd, msg);
+    else if (cmd == "WHO")
+        handleWho(fd, msg);
+    else if (cmd == "WHOIS")
+        return;  // Silently ignore WHOIS for now
+    else if (cmd == "NAMES")
+        return;  // Already handled during JOIN
+    else if (cmd == "PING")
+        sendMessage(fd, ":irc.local PONG irc.local :" + (msg.getParamCount() > 0 ? msg.getParam(0) : "") + "\r\n");
     else if (cmd == "HELP")
         handleHelp(fd, msg);
     else
     {
+        if (msg.getParamCount() == 0 && cmd.length() < 20)
+            return;
         sendMessage(fd, ERR_UNKNOWNCOMMAND(client.getNick(), cmd));
     }
 }
 
-// PASS command handler
 void Server::handlePass(int fd, const Message& msg)
 {
     Client& client = getClient(fd);
@@ -71,7 +81,6 @@ void Server::handlePass(int fd, const Message& msg)
     }
 }
 
-// NICK command handler
 void Server::handleNick(int fd, const Message& msg)
 {
     Client& client = getClient(fd);
@@ -99,7 +108,6 @@ void Server::handleNick(int fd, const Message& msg)
     std::string oldNick = client.getNick();
     client.setNick(newNick);
     
-    // Send welcome messages if just registered
     if (client.getIsRegistered() && oldNick.empty())
     {
         sendMessage(fd, RPL_WELCOME(newNick, client.getUser(), client.getHostname()));
@@ -107,13 +115,13 @@ void Server::handleNick(int fd, const Message& msg)
         sendMessage(fd, RPL_CREATED(newNick));
         sendMessage(fd, RPL_MYINFO(newNick));
         sendMessage(fd, ":irc.local NOTICE " + newNick + " :*** You are now registered! ***");
-        sendMessage(fd, ":irc.local NOTICE " + newNick + " :Type HELP for a list of available commands.");
-        sendMessage(fd, ":irc.local NOTICE " + newNick + " :To join a channel: JOIN #channelname");
-        sendMessage(fd, ":irc.local NOTICE " + newNick + " :To send a message: PRIVMSG #channel :Your message");
+        sendMessage(fd, ":irc.local NOTICE " + newNick + " :*** Connected to IRC Server v1.0 ***");
+        sendMessage(fd, ":irc.local NOTICE " + newNick + " :Type /HELP for a list of available commands.");
+        sendMessage(fd, ":irc.local NOTICE " + newNick + " :To join a channel: /JOIN #channelname");
+        sendMessage(fd, ":irc.local NOTICE " + newNick + " :To send a message: /MSG #channel message");
     }
 }
 
-// USER command handler
 void Server::handleUser(int fd, const Message& msg)
 {
     Client& client = getClient(fd);
@@ -132,7 +140,6 @@ void Server::handleUser(int fd, const Message& msg)
     
     client.setUser(msg.getParam(0), msg.getParam(3));
     
-    // Send welcome messages if just registered
     if (client.getIsRegistered())
     {
         std::string nick = client.getNick();
@@ -141,13 +148,13 @@ void Server::handleUser(int fd, const Message& msg)
         sendMessage(fd, RPL_CREATED(nick));
         sendMessage(fd, RPL_MYINFO(nick));
         sendMessage(fd, ":irc.local NOTICE " + nick + " :*** You are now registered! ***");
-        sendMessage(fd, ":irc.local NOTICE " + nick + " :Type HELP for a list of available commands.");
-        sendMessage(fd, ":irc.local NOTICE " + nick + " :To join a channel: JOIN #channelname");
-        sendMessage(fd, ":irc.local NOTICE " + nick + " :To send a message: PRIVMSG #channel :Your message");
+        sendMessage(fd, ":irc.local NOTICE " + nick + " :*** Connected to IRC Server v1.0 ***");
+        sendMessage(fd, ":irc.local NOTICE " + nick + " :Type /HELP for a list of available commands.");
+        sendMessage(fd, ":irc.local NOTICE " + nick + " :To join a channel: /JOIN #channelname");
+        sendMessage(fd, ":irc.local NOTICE " + nick + " :To send a message: /MSG #channel message");
     }
 }
 
-// QUIT command handler
 void Server::handleQuit(int fd, const Message& msg)
 {
     Client& client = getClient(fd);
@@ -156,7 +163,6 @@ void Server::handleQuit(int fd, const Message& msg)
     if (msg.getParamCount() > 0)
         reason = msg.getParam(0);
     
-    // Broadcast QUIT to all channels
     for (std::map<std::string, Channel*>::iterator it = channels.begin();
          it != channels.end(); ++it)
     {
@@ -170,7 +176,6 @@ void Server::handleQuit(int fd, const Message& msg)
     disconnect(fd);
 }
 
-// JOIN command handler
 void Server::handleJoin(int fd, const Message& msg)
 {
     Client& client = getClient(fd);
@@ -196,11 +201,9 @@ void Server::handleJoin(int fd, const Message& msg)
     if (isNewChannel)
         channel = createChannel(channelName);
     
-    // Check if already in channel
     if (channel->isMember(fd))
         return;
     
-    // Check channel modes
     if (channel->isInviteOnly() && !channel->isInvited(client.getNick()))
     {
         sendMessage(fd, ERR_INVITEONLYCHAN(client.getNick(), channelName));
@@ -219,21 +222,16 @@ void Server::handleJoin(int fd, const Message& msg)
         return;
     }
     
-    // Add member to channel
     channel->addMember(fd);
     
-    // If new channel, make user an operator
     if (isNewChannel)
         channel->addOperator(fd);
     
-    // Remove from invite list
     channel->removeInvite(client.getNick());
     
-    // Broadcast JOIN to channel
-    std::string joinMsg = ":" + client.getPrefix() + " JOIN " + channelName + "\r\n";
+    std::string joinMsg = ":" + client.getPrefix() + " JOIN :" + channelName + "\r\n";
     broadcastToChannel(channelName, joinMsg, -1);
     
-    // Send welcome message if new channel
     if (isNewChannel)
     {
         sendMessage(fd, ":irc.local NOTICE " + client.getNick() + " :*** Welcome to " + channelName + "! ***");
@@ -243,13 +241,11 @@ void Server::handleJoin(int fd, const Message& msg)
         sendMessage(fd, ":irc.local NOTICE " + client.getNick() + " :Type HELP MODE for more information.");
     }
     
-    // Send topic
     if (channel->getTopic().empty())
         sendMessage(fd, RPL_NOTOPIC(client.getNick(), channelName));
     else
         sendMessage(fd, RPL_TOPIC(client.getNick(), channelName, channel->getTopic()));
     
-    // Send names list
     std::string names;
     const std::set<int>& members = channel->getMembers();
     for (std::set<int>::const_iterator it = members.begin(); it != members.end(); ++it)
@@ -263,7 +259,6 @@ void Server::handleJoin(int fd, const Message& msg)
     sendMessage(fd, RPL_ENDOFNAMES(client.getNick(), channelName));
 }
 
-// PART command handler
 void Server::handlePart(int fd, const Message& msg)
 {
     Client& client = getClient(fd);
@@ -291,19 +286,15 @@ void Server::handlePart(int fd, const Message& msg)
         return;
     }
     
-    // Broadcast PART to channel
     std::string partMsg = ":" + client.getPrefix() + " PART " + channelName + " :" + reason + "\r\n";
     broadcastToChannel(channelName, partMsg, -1);
     
-    // Remove member
     channel->removeMember(fd);
     
-    // Delete channel if empty
     if (channel->getMemberCount() == 0)
         deleteChannel(channelName);
 }
 
-// PRIVMSG command handler
 void Server::handlePrivmsg(int fd, const Message& msg)
 {
     Client& client = getClient(fd);
@@ -317,7 +308,6 @@ void Server::handlePrivmsg(int fd, const Message& msg)
     std::string target = msg.getParam(0);
     std::string message = msg.getParam(1);
     
-    // Check if target is a channel
     if (target[0] == '#')
     {
         Channel* channel = getChannel(target);
@@ -339,7 +329,6 @@ void Server::handlePrivmsg(int fd, const Message& msg)
     }
     else
     {
-        // Private message to user
         int targetFd = getFdByNick(target);
         
         if (targetFd == -1)
@@ -353,7 +342,6 @@ void Server::handlePrivmsg(int fd, const Message& msg)
     }
 }
 
-// KICK command handler
 void Server::handleKick(int fd, const Message& msg)
 {
     Client& client = getClient(fd);
@@ -405,7 +393,6 @@ void Server::handleKick(int fd, const Message& msg)
         deleteChannel(channelName);
 }
 
-// INVITE command handler
 void Server::handleInvite(int fd, const Message& msg)
 {
     Client& client = getClient(fd);
@@ -461,7 +448,6 @@ void Server::handleInvite(int fd, const Message& msg)
     sendMessage(targetFd, inviteMsg);
 }
 
-// TOPIC command handler
 void Server::handleTopic(int fd, const Message& msg)
 {
     Client& client = getClient(fd);
@@ -487,7 +473,6 @@ void Server::handleTopic(int fd, const Message& msg)
         return;
     }
     
-    // View topic
     if (msg.getParamCount() == 1)
     {
         if (channel->getTopic().empty())
@@ -497,7 +482,6 @@ void Server::handleTopic(int fd, const Message& msg)
         return;
     }
     
-    // Set topic
     if (channel->isTopicRestricted() && !channel->isOperator(fd))
     {
         sendMessage(fd, ERR_CHANOPRIVSNEEDED(client.getNick(), channelName));
@@ -511,7 +495,6 @@ void Server::handleTopic(int fd, const Message& msg)
     broadcastToChannel(channelName, topicMsg, -1);
 }
 
-// MODE command handler (simplified)
 void Server::handleMode(int fd, const Message& msg)
 {
     Client& client = getClient(fd);
@@ -524,7 +507,6 @@ void Server::handleMode(int fd, const Message& msg)
     
     std::string target = msg.getParam(0);
     
-    // Channel mode
     if (target[0] == '#')
     {
         Channel* channel = getChannel(target);
@@ -541,14 +523,12 @@ void Server::handleMode(int fd, const Message& msg)
             return;
         }
         
-        // View modes
         if (msg.getParamCount() == 1)
         {
             sendMessage(fd, RPL_CHANNELMODEIS(client.getNick(), target, channel->getModeString()));
             return;
         }
         
-        // Set modes (requires operator)
         if (!channel->isOperator(fd))
         {
             sendMessage(fd, ERR_CHANOPRIVSNEEDED(client.getNick(), target));
@@ -612,7 +592,6 @@ void Server::handleMode(int fd, const Message& msg)
             }
         }
         
-        // Broadcast mode change
         std::string modeMsg = ":" + client.getPrefix() + " MODE " + target + " " + modeString;
         for (size_t i = 2; i < msg.getParamCount(); ++i)
             modeMsg += " " + msg.getParam(i);
@@ -621,7 +600,6 @@ void Server::handleMode(int fd, const Message& msg)
     }
 }
 
-// HELP command handler
 void Server::handleHelp(int fd, const Message& msg)
 {
     Client& client = getClient(fd);
@@ -762,3 +740,56 @@ void Server::handleHelp(int fd, const Message& msg)
         sendMessage(fd, ":irc.local NOTICE " + nick + " :======================");
     }
 }
+
+void Server::handleCap(int fd, const Message& msg)
+{
+    Client& client = getClient(fd);
+    std::string nick = client.getNick().empty() ? "*" : client.getNick();
+    
+    if (msg.getParamCount() < 1)
+        return;
+    
+    std::string subCmd = toUpper(msg.getParam(0));
+    
+    if (subCmd == "LS")
+    {
+        sendMessage(fd, ":irc.local CAP " + nick + " LS :\r\n");
+    }
+    else if (subCmd == "REQ")
+    {
+        sendMessage(fd, ":irc.local CAP " + nick + " NAK :\r\n");
+    }
+    else if (subCmd == "END")
+    {
+        return;
+    }
+}
+
+void Server::handleWho(int fd, const Message& msg)
+{
+    Client& client = getClient(fd);
+    std::string mask = msg.getParamCount() > 0 ? msg.getParam(0) : "*";
+    
+    if (!mask.empty() && mask[0] == '#')
+    {
+        Channel* channel = getChannel(mask);
+        if (channel && channel->isMember(fd))
+        {
+            const std::set<int>& members = channel->getMembers();
+            for (std::set<int>::const_iterator it = members.begin(); it != members.end(); ++it)
+            {
+                const Client& memberClient = getClient(*it);
+                std::string flags = channel->isOperator(*it) ? "@" : "";
+                
+                std::string whoReply = ":irc.local 352 " + client.getNick() + " " + mask + " " +
+                                      memberClient.getUser() + " " + memberClient.getHostname() + 
+                                      " irc.local " + memberClient.getNick() + " H" + flags + 
+                                      " :0 " + memberClient.getReal() + "\r\n";
+                sendMessage(fd, whoReply);
+            }
+        }
+    }
+    
+    sendMessage(fd, ":irc.local 315 " + client.getNick() + " " + mask + " :End of WHO list\r\n");
+}
+
