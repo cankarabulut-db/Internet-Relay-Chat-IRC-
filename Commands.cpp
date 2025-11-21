@@ -84,6 +84,12 @@ void Server::handlePass(int fd, const Message& msg)
 void Server::handleNick(int fd, const Message& msg)
 {
     Client& client = getClient(fd);
+
+    if (!password.empty() && !client.getHasPassed())
+    {
+        sendMessage(fd, ERR_PASSWDMISMATCH("*"));
+        return;
+    }
     
     if (msg.getParamCount() < 1)
     {
@@ -125,6 +131,12 @@ void Server::handleNick(int fd, const Message& msg)
 void Server::handleUser(int fd, const Message& msg)
 {
     Client& client = getClient(fd);
+
+    if (!password.empty() && !client.getHasPassed())
+    {
+        sendMessage(fd, ERR_PASSWDMISMATCH("*"));
+        return;
+    }
     
     if (client.getIsRegistered())
     {
