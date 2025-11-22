@@ -195,6 +195,18 @@ void Server::handleClientData(int clientSocket)
         if (bytesRead > 0)
         {
             buffer[bytesRead] = '\0';
+            
+            // Ctrl+D (EOT = ASCII 4) karakterini yeni satıra çevir
+            for (int i = 0; i < bytesRead; ++i)
+            {
+                if (buffer[i] == 4)  // Ctrl+D
+                {
+                    // Client'a yeni satır gönder (echo back)
+                    std::string newline = "\r\n";
+                    send(clientSocket, newline.c_str(), newline.length(), MSG_NOSIGNAL);
+                }
+            }
+            
             clientBuffers[clientSocket] += buffer;
         }
         else if (bytesRead == 0)
