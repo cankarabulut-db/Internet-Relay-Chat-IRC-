@@ -17,6 +17,11 @@ int Client::getFd() const
     return fd; 
 }
 
+int Client::getPort() const
+{
+    return port;
+}
+
 std::string Client::getNick() const 
 { 
     return nickname; 

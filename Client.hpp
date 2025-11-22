@@ -25,6 +25,7 @@ public:
     Client(int fd, const std::string& ip, int port);
     
     int getFd() const;
+    int getPort() const;
     std::string getNick() const;
     std::string getUser() const;
     std::string getReal() const;
